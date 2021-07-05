@@ -56,7 +56,7 @@ async def send_dm(user, text):
   return await user.send(text)
 
 async def handle_archive_react(extractor, message, user):
-  logger.info(msg='Handling archive react on message ' + str(message.id), extra={'guild': message.guild.id})
+  logger.info(msg=f'Handling archive react on message {str(message.id)} in channel {str(message.channel.id)}', extra={'guild': message.guild.id})
   urls = extractor.find_urls(message.content)
   if urls:
     for url in urls:
