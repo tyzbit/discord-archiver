@@ -7,7 +7,7 @@ RUN apk add \
 &&  pip install -r requirements.txt
 
 # Uncomment for local development to bake in a config
-ADD config.json /config.json
+# ADD config.json /config.json
 ADD bot.py /bot.py
 
 CMD ["python","bot.py"]
