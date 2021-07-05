@@ -1,0 +1,5 @@
+{
+    "logLevel": "debug",
+    "logOutput": "file",
+    "discordToken": "PUT YOUR DISCORD TOKEN HERE"
+}
