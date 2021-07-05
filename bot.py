@@ -10,6 +10,7 @@ from urlextract import URLExtract
 
 archive_api = 'https://web.archive.org'
 
+# https://www.haykranen.nl/2016/02/13/handling-complex-nested-dicts-in-python/
 class DictQuery(dict):
   def get(self, path, default = None):
     keys = path.split("/")
@@ -38,7 +39,6 @@ class BotState:
     Initializes the bot state by reading it from a file
     '''
     self.current_dir = str(pathlib.Path(__file__).resolve().parent)
-    self.state={}
     config_file = f'{current_dir}/config.json'
     try:
       with open(config_file, 'r') as read_file:
@@ -51,11 +51,34 @@ class BotState:
       logger.warning(f'Config file not found at {config_file}, exiting')
       sys.exit(1)
 
-async def send_dm(user, text):
-  logger.debug(msg=f'Sending a message to {user.name}', extra={'guild': 'internal'})
-  return await user.send(text)
+async def send_dm(user=None, text=None, embed=None):
+  '''
+  Sends a user a DM with the text string provided
+  '''
+  if not user:
+    logger.error(f'send_dm called without user', extra={'guild': 'internal'})
+  else:
+    logger.debug(msg=f'Sending a message to {user.name}', extra={'guild': 'internal'})
+    if embed:
+      return await user.send(embed=embed)
+    elif text:
+      return await user.send(text)
+    else:
+      logger.error(f'send_dm called without text or embed', extra={'guild': 'internal'})
+
+def save_page(url):
+  '''
+  Saves the page using an HTTP get, returns the response object
+  '''
+  logger.debug(f'Saving page {url}', extra={'guild': 'internal'})
+  response = requests.get(archive_api + '/save/' + url, allow_redirects=False)
+  logger.debug(f'{url} saved', extra={'guild': 'internal'})
+  return response
 
 async def handle_archive_react(extractor, message, user):
+  '''
+  Finds links in the message that was reacted to and messages archive.org links to the user who reacted
+  '''
   logger.info(msg=f'Handling archive react on message {str(message.id)} in channel {str(message.channel.id)}, link for context: https://discord.com/channels/{str(message.guild.id)}/{str(message.channel.id)}/{str(message.id)}', extra={'guild': message.guild.id})
   urls = extractor.find_urls(message.content)
   if urls:
@@ -78,6 +101,9 @@ async def handle_archive_react(extractor, message, user):
         await handle_page_save_request(message, user, url, response)
 
 async def handle_repeat_react(extractor, message, user):
+  '''
+  Rearchives a link and sends the user who reacted a link to the new archive page
+  '''
   logger.info(f'Handling repeat react on message {message.id}', extra={'guild': message.guild.id})
   urls = extractor.find_urls(message.content)
   if urls:
@@ -92,6 +118,9 @@ async def handle_repeat_react(extractor, message, user):
         logger.error(f'Error handling page save request: {e}', extra={'guild': message.guild.id})
 
 async def handle_page_save_request(message, user, url, response):
+  '''
+  Sends a DM if the page save request was successful, if not checks if the page was just saved and sends that.  Otherwise, logs the error
+  '''
   if response.status_code not in [302,301]:
     if response.status_code in [523,520]:
       logger.debug(msg=f'Wayback did not proxy the request for url {url}', extra={'guild': message.guild.id})
@@ -111,11 +140,31 @@ async def handle_page_save_request(message, user, url, response):
       logger.error(msg=f'Headers: \n' + str(response.headers), extra={'guild': message.guild.id})
       logger.error(msg=f'Status Code: \n' + str(response.status_code), extra={'guild': message.guild.id})
 
-def save_page(url):
-  logger.debug(f'Saving page {url}', extra={'guild': 'internal'})
-  response = requests.get(archive_api + '/save/' + url, allow_redirects=False)
-  logger.debug(f'{url} saved', extra={'guild': 'internal'})
-  return response
+async def status_command(bot_state, client, message):
+  config = bot_state.config
+  # only administrators can use this command
+  if message.author.id not in config['administratorIds']:
+    logger.debug(f'Status command called but {message.author.id} is not in administratorIds', extra={'guild': 'internal'})
+  else:
+    guild_list = ''
+    i = 0
+    for guild in client.guilds:
+      if i > 0:
+        guild_list = f'{guild_list}, {guild.name}'
+      else:
+        guild_list = f'{guild.name}'
+
+      i = i + 1
+
+    embed = discord.Embed()
+    embed.title = 'Archive.org status'
+    embed.color = 16753920 # orange
+    embed.add_field(name='Guild list', value=guild_list, inline=False)
+    embed.add_field(name='Cached messages', value=str(len(client.cached_messages)), inline=False)
+    embed.add_field(name='Private messages', value=str(len(client.private_channels)), inline=False)
+
+
+    await send_dm(message.author, embed=embed)
 
 def main(bot_state):
   logger.info(msg='Starting bot...', extra={'guild': 'internal'})
@@ -123,9 +172,30 @@ def main(bot_state):
   discordToken = bot_state.config['discordToken']
   client = discord.Client()
 
+  possible_commands={
+    '!archivestatus': 'status_command'
+  }
+
   @client.event
   async def on_ready():
     logger.info(msg=f'{client.user} has connected to Discord!', extra={'guild': 'internal'})
+  
+  @client.event
+  async def on_message(message):
+    if message.author == client.user:
+      return
+
+    try:
+      guild = message.guild.id
+    except:
+      guild = 'direct'      
+
+    for command in possible_commands:
+      if message.content.split(' ')[0] == command:
+        function = possible_commands[message.content.split(' ')[0]]
+        call_function = globals()[function]
+        logger.debug(f'Calling {function}', extra={'guild': guild})
+        await call_function(bot_state, client, message)
 
   @client.event
   async def on_reaction_add(reaction, user):
@@ -139,6 +209,14 @@ def main(bot_state):
         await handle_repeat_react(extractor, reaction.message, user)
       except Exception as e:
         logger.error(msg='Error calling handle_repeat_react, exception: {e}', extra={'guild': reaction.message.guild.id})
+
+  @client.event
+  async def on_guild_join(guild):
+    logger.info(f'Joined guild {guild.name}', extra={'guild': guild.id})
+  
+  @client.event
+  async def on_guild_remove(guild):
+    logger.info(f'Left guild {guild.name}', extra={'guild': guild.id})
 
   client.run(discordToken)
 
@@ -179,6 +257,7 @@ if __name__ == '__main__':
   if 'discordToken' not in config:
     logger.error(msg='\'discordToken\' is not set in config', extra={'guild': 'internal'})
     sys.exit(1)
+
   discordToken = config['discordToken']
   extractor = URLExtract()
   main(bot_state)
