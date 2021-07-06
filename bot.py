@@ -229,14 +229,14 @@ if __name__ == '__main__':
 
   # Set up logging to console and file
   logger = logging.getLogger('bot')
-  fh = logging.FileHandler(str(current_dir) + '/bot.log')
-  ch = logging.StreamHandler()
   formatter = logging.Formatter('%(asctime)s - %(guild)s - %(levelname)s - %(message)s')
-  fh.setFormatter(formatter)
-  ch.setFormatter(formatter)
   if config['logOutput'] == "file" or config['logOutput'] == "both":
+    fh = logging.FileHandler(str(current_dir) + '/bot.log')
+    fh.setFormatter(formatter)
     logger.addHandler(fh)
   if config['logOutput'] == "stdout" or config['logOutput'] == "both":
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
     logger.addHandler(ch)
 
   # Set loglevel
