@@ -136,7 +136,7 @@ async def handle_page_save_request(message, user, url, response):
       logger.info(f'Page archived, sending URL {location} to {user.name}', extra={'guild': message.guild.id})
       await send_dm(user, location)
     except:
-      logger.error(msg=f'Location header not found. Message ID: {str(message.id)}, URL: {url}', extra={'guild': message.guild.id})
+      logger.error(msg=f'Unable to extract location from response and send DM. Message ID: {str(message.id)}, URL: {url}', extra={'guild': message.guild.id})
       logger.error(msg=f'Response content: \n' + str(response.content), extra={'guild': message.guild.id})
       logger.error(msg=f'Headers: \n' + str(response.headers), extra={'guild': message.guild.id})
       logger.error(msg=f'Status Code: \n' + str(response.status_code), extra={'guild': message.guild.id})
