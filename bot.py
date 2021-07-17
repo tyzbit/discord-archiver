@@ -3,8 +3,9 @@ import discord
 import json
 import logging
 import pathlib
-import sys
 import requests
+import sys
+import time
 import urllib
 from urlextract import URLExtract
 
@@ -226,6 +227,8 @@ if __name__ == '__main__':
   # Init state
   bot_state = BotState()
   config = bot_state.config
+
+  time.tzset()
 
   # Set up logging to console and file
   logger = logging.getLogger('bot')
