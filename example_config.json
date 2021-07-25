@@ -1,5 +1,8 @@
 {
     "logLevel": "debug",
+    "administratorIds": [
+        1234567890
+    ],
     "logOutput": "file",
     "discordToken": "PUT YOUR DISCORD TOKEN HERE"
 }
