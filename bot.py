@@ -167,6 +167,14 @@ async def status_command(bot_state, client, message):
 
     await send_dm(message.author, embed=embed)
 
+async def update_activity(bot_state, client, message=None):
+  await client.change_presence(
+    activity=discord.Activity(
+      status=discord.Status.online, 
+      type=discord.ActivityType.watching, 
+      name=f'{len(client.guilds)} servers'))
+
+
 def main(bot_state):
   logger.info(msg='Starting bot...', extra={'guild': 'internal'})
 
@@ -180,6 +188,7 @@ def main(bot_state):
   @client.event
   async def on_ready():
     logger.info(msg=f'{client.user} has connected to Discord!', extra={'guild': 'internal'})
+    await update_activity(bot_state, client)
   
   @client.event
   async def on_message(message):
@@ -214,10 +223,12 @@ def main(bot_state):
   @client.event
   async def on_guild_join(guild):
     logger.info(f'Joined guild {guild.name}', extra={'guild': guild.id})
+    await update_activity(bot_state, client)
   
   @client.event
   async def on_guild_remove(guild):
     logger.info(f'Left guild {guild.name}', extra={'guild': guild.id})
+    await update_activity(bot_state, client)
 
   client.run(discordToken)
 
