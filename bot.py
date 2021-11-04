@@ -85,20 +85,26 @@ async def send_to_channel(channel=None, text=None, embed=None):
     else:
       logger.error(f'send_to_channel called without text or embed', extra={'guild': 'internal'})
 
-async def respond_to_user(message=None, user=None, text=None, embed=None):
+async def respond_to_user(message=None, user=None, text=None, embed=None, repeat_react=None):
   '''
   Either sends a DM or replies to a channel depending on config.
   '''
   target = bot_state.config['messageTarget']
   logger.info(f'Sending text {text}, target was {target}, message channel was {message.channel}', extra={'guild': message.guild.id})
   if target == 'user' or message.channel == None:
-    await send_dm(user, text)
+    if embed is not None:
+      await send_dm(user, embed)
+    else:
+      await send_dm(user, text)
   else:
-    if message.id not in bot_state.handled_messages:
-      await send_to_channel(message.channel, text)
+    if message.id not in bot_state.handled_messages or repeat_react == True:
+      if embed is not None:
+        await send_to_channel(message.channel, embed)
+      else:
+        await send_to_channel(message.channel, text)
       bot_state.handled_messages.append(message.id)
     else:
-      logger.info(f'Message with ID {message.id} has already been responded to', extra={'guild': message.guild.id})
+      logger.info(f'Message with ID {message.id} has already been responded to and repeat react not used', extra={'guild': message.guild.id})
 
 def save_page(url):
   '''
@@ -146,11 +152,11 @@ async def handle_repeat_react(extractor, message, user):
       except Exception as e:
         logger.error(f'Error saving page {url}: {e}', extra={'guild': message.guild.id})
       try:
-        await handle_page_save_request(message, user, url, response)
+        await handle_page_save_request(message, user, url, response, True)
       except Exception as e:
         logger.error(f'Error handling page save request: {e}', extra={'guild': message.guild.id})
 
-async def handle_page_save_request(message, user, url, response):
+async def handle_page_save_request(message, user, url, response, repeat_react):
   '''
   Sends a DM if the page save request was successful, if not checks if the page was just saved and sends that.  Otherwise, logs the error
   '''
@@ -165,7 +171,7 @@ async def handle_page_save_request(message, user, url, response):
   else:
     try:
       wayback_url = response.headers['Location']
-      await respond_to_user(message, user, wayback_url)
+      await respond_to_user(message, user, text=wayback_url, repeat_react=True)
     except:
       logger.error(msg=f'Unable to extract location from response and send DM. Message ID: {str(message.id)}, URL: {url}', extra={'guild': message.guild.id})
       logger.error(msg=f'Response content: \n' + str(response.content), extra={'guild': message.guild.id})
