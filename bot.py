@@ -51,6 +51,9 @@ class BotState:
     except Exception as e:
       logger.warning(f'Config file not found at {config_file}, exiting')
       sys.exit(1)
+    
+    # This object keeps track of handled messages.
+    self.handled_messages = []
 
 async def send_dm(user=None, text=None, embed=None):
   '''
@@ -66,6 +69,36 @@ async def send_dm(user=None, text=None, embed=None):
       return await user.send(text)
     else:
       logger.error(f'send_dm called without text or embed', extra={'guild': 'internal'})
+
+async def send_to_channel(channel=None, text=None, embed=None):
+  '''
+  Sends a user a DM with the text string provided
+  '''
+  if not channel:
+    logger.error(f'send_to_channel called without channel', extra={'guild': 'internal'})
+  else:
+    logger.debug(msg=f'Sending a message to the channel {channel.name}', extra={'guild': channel.guild})
+    if embed:
+      return await channel.send(embed=embed)
+    elif text:
+      return await channel.send(text)
+    else:
+      logger.error(f'send_to_channel called without text or embed', extra={'guild': 'internal'})
+
+async def respond_to_user(message=None, user=None, text=None, embed=None):
+  '''
+  Either sends a DM or replies to a channel depending on config.
+  '''
+  target = bot_state.config['messageTarget']
+  logger.info(f'Sending text {text}, target was {target}, message channel was {message.channel}', extra={'guild': message.guild.id})
+  if target == 'user' or message.channel == None:
+    await send_dm(user, text)
+  else:
+    if message.id not in bot_state.handled_messages:
+      await send_to_channel(message.channel, text)
+      bot_state.handled_messages.append(message.id)
+    else:
+      logger.info(f'Message with ID {message.id} has already been responded to', extra={'guild': message.guild.id})
 
 def save_page(url):
   '''
@@ -84,13 +117,12 @@ async def handle_archive_react(extractor, message, user):
   urls = extractor.find_urls(message.content)
   if urls:
     for url in urls:
-      logger.debug(msg='URL found: ' + url, extra={'guild': message.guild.id})
+      logger.debug(msg=f'URL found: {url}', extra={'guild': message.guild.id})
       wayback_response = requests.get(archive_api + '/wayback/available?url=' + urllib.parse.quote(url)).json()
-      logger.debug(msg='Wayback response: ' + str(wayback_response), extra={'guild': message.guild.id})
+      logger.debug(msg=f'Wayback response: {str(wayback_response)}', extra={'guild': message.guild.id})
       wayback_url = DictQuery(wayback_response).get('archived_snapshots/closest/url')
       if wayback_url:
-        logger.info(msg='Wayback link available, sending to ' + user.name, extra={'guild': message.guild.id})
-        await send_dm(user, wayback_url)
+        await respond_to_user(message, user, wayback_url)
       else:
         logger.info(msg=f'Wayback did not have the URL {url}, requesting that it be archived', extra={'guild': message.guild.id})
         try:
@@ -132,9 +164,8 @@ async def handle_page_save_request(message, user, url, response):
       logger.debug(msg=f'{response.content}', extra={'guild': message.guild.id})
   else:
     try:
-      location = response.headers['Location']
-      logger.info(f'Page archived, sending URL {location} to {user.name}', extra={'guild': message.guild.id})
-      await send_dm(user, location)
+      wayback_url = response.headers['Location']
+      await respond_to_user(message, user, wayback_url)
     except:
       logger.error(msg=f'Unable to extract location from response and send DM. Message ID: {str(message.id)}, URL: {url}', extra={'guild': message.guild.id})
       logger.error(msg=f'Response content: \n' + str(response.content), extra={'guild': message.guild.id})
@@ -163,6 +194,7 @@ async def status_command(bot_state, client, message):
     embed.add_field(name='Guild list', value=guild_list, inline=False)
     embed.add_field(name='Cached messages', value=str(len(client.cached_messages)), inline=False)
     embed.add_field(name='Private messages', value=str(len(client.private_channels)), inline=False)
+    embed.add_field(name='Response messages', value=str(len(bot_state.handled_messages)), inline=False)
 
 
     await send_dm(message.author, embed=embed)
@@ -176,7 +208,7 @@ async def update_activity(bot_state, client, message=None):
 
 
 def main(bot_state):
-  logger.info(msg='Starting bot...', extra={'guild': 'internal'})
+  logger.info(msg=f'Starting bot...', extra={'guild': 'internal'})
 
   discordToken = bot_state.config['discordToken']
   client = discord.Client()
@@ -213,12 +245,12 @@ def main(bot_state):
       try:
         await handle_archive_react(extractor, reaction.message, user)
       except Exception as e:
-        logger.error(msg='Error calling handle_archive_react, exception: {e}', extra={'guild': reaction.message.guild.id})
+        logger.error(msg=f'Error calling handle_archive_react, exception: {e}', extra={'guild': reaction.message.guild.id})
     elif reaction.emoji == '🔁':
       try:
         await handle_repeat_react(extractor, reaction.message, user)
       except Exception as e:
-        logger.error(msg='Error calling handle_repeat_react, exception: {e}', extra={'guild': reaction.message.guild.id})
+        logger.error(msg=f'Error calling handle_repeat_react, exception: {e}', extra={'guild': reaction.message.guild.id})
 
   @client.event
   async def on_guild_join(guild):
@@ -269,7 +301,7 @@ if __name__ == '__main__':
     logger.warn(msg=f'Logging set to warn...', extra={'guild': 'internal'})
 
   if 'discordToken' not in config:
-    logger.error(msg='\'discordToken\' is not set in config', extra={'guild': 'internal'})
+    logger.error(msg=f'\'discordToken\' is not set in config', extra={'guild': 'internal'})
     sys.exit(1)
 
   discordToken = config['discordToken']

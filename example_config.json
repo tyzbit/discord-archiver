@@ -3,6 +3,7 @@
     "administratorIds": [
         1234567890
     ],
-    "logOutput": "file",
+    "logOutput": "stdout",
+    "messageTarget": "channel",
     "discordToken": "PUT YOUR DISCORD TOKEN HERE"
 }
