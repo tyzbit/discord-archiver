@@ -137,7 +137,7 @@ async def handle_archive_react(extractor, message, user):
           logger.error(msg=f'There was a problem making the request, exception: {e}', extra={'guild': message.guild.id})
           return
 
-        await handle_page_save_request(message, user, url, response)
+        await handle_page_save_request(message, user, url, response, False)
 
 async def handle_repeat_react(extractor, message, user):
   '''
