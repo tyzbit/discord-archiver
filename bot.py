@@ -171,7 +171,7 @@ async def handle_page_save_request(message, user, url, response, repeat_react):
   else:
     try:
       wayback_url = response.headers['Location']
-      await respond_to_user(message, user, text=wayback_url, repeat_react=True)
+      await respond_to_user(message, user, text=wayback_url, repeat_react=repeat_react)
     except:
       logger.error(msg=f'Unable to extract location from response and send DM. Message ID: {str(message.id)}, URL: {url}', extra={'guild': message.guild.id})
       logger.error(msg=f'Response content: \n' + str(response.content), extra={'guild': message.guild.id})
