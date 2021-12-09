@@ -2,11 +2,13 @@
 import discord
 import json
 import logging
+import os
 import pathlib
 import requests
 import sys
 import time
 import urllib
+from dotenv import load_dotenv
 from urlextract import URLExtract
 
 archive_api = 'https://web.archive.org'
@@ -39,18 +41,29 @@ class BotState:
     '''
     Initializes the bot state by reading it from a file
     '''
-    self.current_dir = str(pathlib.Path(__file__).resolve().parent)
-    config_file = f'{current_dir}/config.json'
+    state_logger = logging.getLogger('bot')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    state_logger.addHandler(ch)
+    load_dotenv()
     try:
-      with open(config_file, 'r') as read_file:
-        try:
-          self.config = json.load(read_file)
-        except Exception as e:
-          logger.error(f'Unable to read config file at {config_file}, {e}')
-          sys.exit(1)
+      self.config = json.loads(os.environ.get('CONFIG'))
     except Exception as e:
-      logger.warning(f'Config file not found at {config_file}, exiting')
-      sys.exit(1)
+      state_logger.error(f'$CONFIG environment variable could not be read (exception was {e}), trying to load from config.json')
+      self.current_dir = str(pathlib.Path(__file__).resolve().parent)
+      config_file = f'{current_dir}/config.json'
+      try:
+        with open(config_file, 'r') as read_file:
+          try:
+            self.config = json.load(read_file)
+          except Exception as e:
+            logger.error(f'Unable to read config file at {config_file}, {e}')
+            sys.exit(1)
+      except Exception as e:
+        logger.warning(f'Config file not found at {config_file}, exiting')
+        sys.exit(1)
+    state_logger.removeHandler(ch)
     
     # This object keeps track of handled messages.
     self.handled_messages = []
