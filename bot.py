@@ -83,7 +83,7 @@ async def send_dm(user=None, text=None, embed=None):
     else:
       logger.error(f'send_dm called without text or embed', extra={'guild': 'internal'})
 
-async def send_to_channel(channel=None, text=None, embed=None):
+async def send_to_channel(channel=None, message=None, text=None, embed=None):
   '''
   Sends a user a DM with the text string provided
   '''
@@ -92,9 +92,9 @@ async def send_to_channel(channel=None, text=None, embed=None):
   else:
     logger.debug(msg=f'Sending a message to the channel {channel.name}', extra={'guild': channel.guild})
     if embed:
-      return await channel.send(embed=embed)
+      return await channel.send(embed=embed, reference=message, mention_author=False)
     elif text:
-      return await channel.send(text)
+      return await channel.send(text, reference=message, mention_author=False)
     else:
       logger.error(f'send_to_channel called without text or embed', extra={'guild': 'internal'})
 
@@ -112,9 +112,9 @@ async def respond_to_user(message=None, user=None, text=None, embed=None, repeat
   else:
     if message.id not in bot_state.handled_messages or repeat_react == True:
       if embed is not None:
-        await send_to_channel(message.channel, embed)
+        await send_to_channel(message.channel, message, embed)
       else:
-        await send_to_channel(message.channel, text)
+        await send_to_channel(message.channel, message, text)
       bot_state.handled_messages.append(message.id)
     else:
       logger.info(f'Message with ID {message.id} has already been responded to and repeat react not used', extra={'guild': message.guild.id})

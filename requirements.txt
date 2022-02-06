@@ -1,4 +1,4 @@
-discord.py == 1.4.1
+discord.py == 1.7.3
 python-dotenv == 0.19.2
 urlextract == 1.3.0
 requests == 2.25.1
