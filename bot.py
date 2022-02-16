@@ -90,7 +90,7 @@ async def send_to_channel(channel=None, message=None, text=None, embed=None):
   if not channel:
     logger.error(f'send_to_channel called without channel', extra={'guild': 'internal'})
   else:
-    logger.debug(msg=f'Sending a message to the channel {channel.name}', extra={'guild': channel.guild})
+    logger.debug(msg=f'Sending a message to the channel {channel.name}', extra={'guild': f'{channel.guild.id} | {channel.guild.name}'})
     if embed:
       return await channel.send(embed=embed, reference=message, mention_author=False)
     elif text:
@@ -103,7 +103,7 @@ async def respond_to_user(message=None, user=None, text=None, embed=None, repeat
   Either sends a DM or replies to a channel depending on config.
   '''
   target = bot_state.config['messageTarget']
-  logger.info(f'Sending text {text}, target was {target}, message channel was {message.channel}', extra={'guild': message.guild.id})
+  logger.info(f'Sending text {text}, target was {target}, message channel was {message.channel}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
   if target == 'user' or message.channel == None:
     if embed is not None:
       await send_dm(user, embed)
@@ -117,7 +117,7 @@ async def respond_to_user(message=None, user=None, text=None, embed=None, repeat
         await send_to_channel(message.channel, message, text)
       bot_state.handled_messages.append(message.id)
     else:
-      logger.info(f'Message with ID {message.id} has already been responded to and repeat react not used', extra={'guild': message.guild.id})
+      logger.info(f'Message with ID {message.id} has already been responded to and repeat react not used', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
 
 def save_page(url):
   '''
@@ -132,22 +132,22 @@ async def handle_archive_react(extractor, message, user):
   '''
   Finds links in the message that was reacted to and messages archive.org links to the user who reacted
   '''
-  logger.info(msg=f'Handling archive react on message {str(message.id)} in channel {str(message.channel.id)}, link for context: https://discord.com/channels/{str(message.guild.id)}/{str(message.channel.id)}/{str(message.id)}', extra={'guild': message.guild.id})
+  logger.info(msg=f'Handling archive react on message {str(message.id)} in channel {str(message.channel.id)}, link for context: https://discord.com/channels/{str(message.guild.id)}/{str(message.channel.id)}/{str(message.id)}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
   urls = extractor.find_urls(message.content)
   if urls:
     for url in urls:
-      logger.debug(msg=f'URL found: {url}', extra={'guild': message.guild.id})
+      logger.debug(msg=f'URL found: {url}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
       wayback_response = requests.get(archive_api + '/wayback/available?url=' + urllib.parse.quote(url)).json()
-      logger.debug(msg=f'Wayback response: {str(wayback_response)}', extra={'guild': message.guild.id})
+      logger.debug(msg=f'Wayback response: {str(wayback_response)}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
       wayback_url = DictQuery(wayback_response).get('archived_snapshots/closest/url')
       if wayback_url:
         await respond_to_user(message, user, wayback_url)
       else:
-        logger.info(msg=f'Wayback did not have the URL {url}, requesting that it be archived', extra={'guild': message.guild.id})
+        logger.info(msg=f'Wayback did not have the URL {url}, requesting that it be archived', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
         try:
           response = save_page(url)
         except Exception as e:
-          logger.error(msg=f'There was a problem making the request, exception: {e}', extra={'guild': message.guild.id})
+          logger.error(msg=f'There was a problem making the request, exception: {e}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
           return
 
         await handle_page_save_request(message, user, url, response, False)
@@ -156,18 +156,18 @@ async def handle_repeat_react(extractor, message, user):
   '''
   Rearchives a link and sends the user who reacted a link to the new archive page
   '''
-  logger.info(f'Handling repeat react on message {message.id}', extra={'guild': message.guild.id})
+  logger.info(f'Handling repeat react on message {message.id}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
   urls = extractor.find_urls(message.content)
   if urls:
     for url in urls:
       try:
         response = save_page(url)
       except Exception as e:
-        logger.error(f'Error saving page {url}: {e}', extra={'guild': message.guild.id})
+        logger.error(f'Error saving page {url}: {e}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
       try:
         await handle_page_save_request(message, user, url, response, True)
       except Exception as e:
-        logger.error(f'Error handling page save request: {e}', extra={'guild': message.guild.id})
+        logger.error(f'Error handling page save request: {e}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
 
 async def handle_page_save_request(message, user, url, response, repeat_react):
   '''
@@ -175,12 +175,12 @@ async def handle_page_save_request(message, user, url, response, repeat_react):
   '''
   if response.status_code not in [302,301]:
     if response.status_code in [523,520]:
-      logger.debug(msg=f'Wayback did not proxy the request for url {url}', extra={'guild': message.guild.id})
+      logger.debug(msg=f'Wayback did not proxy the request for url {url}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
       await send_dm(user, 'The Internet Archive declined to crawl the link you reacted to.  Sorry.')
     else:
-      logger.error(msg=f'Something\'s wrong, we tried to save the page but we were not redirected.  Message ID: {message.id}, URL: {url}', extra={'guild': message.guild.id})
-      logger.debug(msg=f'Status code: {response.status_code}', extra={'guild': message.guild.id})
-      logger.debug(msg=f'{response.content}', extra={'guild': message.guild.id})
+      logger.error(msg=f'Something\'s wrong, we tried to save the page but we were not redirected.  Message ID: {message.id}, URL: {url}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
+      logger.debug(msg=f'Status code: {response.status_code}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
+      logger.debug(msg=f'{response.content}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
   else:
     try:
       wayback_url = response.headers['Location']
@@ -191,10 +191,10 @@ async def handle_page_save_request(message, user, url, response, repeat_react):
         wayback_url = response.headers['location']
         await respond_to_user(message, user, text=wayback_url, repeat_react=repeat_react)
       except:
-        logger.error(msg=f'Unable to extract location from response and send DM. Message ID: {str(message.id)}, URL: {url}', extra={'guild': message.guild.id})
-        logger.error(msg=f'Response content: \n' + str(response.content), extra={'guild': message.guild.id})
-        logger.error(msg=f'Headers: \n' + str(response.headers), extra={'guild': message.guild.id})
-        logger.error(msg=f'Status Code: \n' + str(response.status_code), extra={'guild': message.guild.id})
+        logger.error(msg=f'Unable to extract location from response and send DM. Message ID: {str(message.id)}, URL: {url}', extra={'guild': f'{message.guild.id} | {message.guild.name}'})
+        logger.error(msg=f'Response content: \n' + str(response.content), extra={'guild': f'{message.guild.id} | {message.guild.name}'})
+        logger.error(msg=f'Headers: \n' + str(response.headers), extra={'guild': f'{message.guild.id} | {message.guild.name}'})
+        logger.error(msg=f'Status Code: \n' + str(response.status_code), extra={'guild': f'{message.guild.id} | {message.guild.name}'})
 
 async def status_command(bot_state, client, message):
   config = bot_state.config
@@ -269,21 +269,21 @@ def main(bot_state):
       try:
         await handle_archive_react(extractor, reaction.message, user)
       except Exception as e:
-        logger.error(msg=f'Error calling handle_archive_react, exception: {e}', extra={'guild': reaction.message.guild.id})
+        logger.error(msg=f'Error calling handle_archive_react, exception: {e}', extra={'guild': f'{reaction.message.guild.id} | {reaction.message.guild.name}'})
     elif reaction.emoji == '🔁':
       try:
         await handle_repeat_react(extractor, reaction.message, user)
       except Exception as e:
-        logger.error(msg=f'Error calling handle_repeat_react, exception: {e}', extra={'guild': reaction.message.guild.id})
+        logger.error(msg=f'Error calling handle_repeat_react, exception: {e}', extra={'guild': f'{reaction.message.guild.id} | {reaction.message.guild.name}'})
 
   @client.event
   async def on_guild_join(guild):
-    logger.info(f'Joined guild {guild.name}', extra={'guild': guild.id})
+    logger.info(f'Joined guild {guild.name}', extra={'guild': f'{guild.id} | {guild.name}'})
     await update_activity(bot_state, client)
   
   @client.event
   async def on_guild_remove(guild):
-    logger.info(f'Left guild {guild.name}', extra={'guild': guild.id})
+    logger.info(f'Left guild {guild.name}', extra={'guild': f'{guild.id} | {guild.name}'})
     await update_activity(bot_state, client)
 
   client.run(discordToken)
